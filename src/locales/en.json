@@ -1009,5 +1009,28 @@
         "Variable": "Variable",
         "Video": "Video"
     },
+    "Tuning": {
+		"ZEndstopCalibrationPanel": {
+			"PanelHeader": "Calibrating a Z endstop aka manual probe",
+			"CurrentOffset": "Current Offset"
+		},
+		"BedScrewsAdjustCalibrationPanel": {
+			"PanelHeader": "Adjusting bed leveling screws",
+			"CurrentOffset": "Current Offset"
+		},
+		"ManualBedCalibrationPanel": {
+			"PanelHeader": "The paper test Calibration",
+			"CurrentOffset": "Current Offset"
+		},
+		"MiscCalibrationPanel": {
+			"PanelHeader":"Miscellaneous calibrations"
+		},
+		"PidCalibrationPanel": {
+			"PanelHeader": "Temperature calibrations"
+		},
+		"EstepsCalibrationPanel": {
+			"PanelHeader": "Extruder E-steps Calibration"
+		}
+	},
     "title": "English"
 }
