@@ -3,8 +3,6 @@ import BaseMixin from '@/components/mixins/base'
 import { allDashboardPanels } from '@/store/variables'
 import { capitalize } from '@/plugins/helpers'
 import { GuiMacrosStateMacrogroup } from '@/store/gui/macros/types'
-import kebabCase from 'lodash.kebabcase'
-import Vue from 'vue'
 
 @Component
 export default class DashboardMixin extends BaseMixin {
@@ -20,8 +18,8 @@ export default class DashboardMixin extends BaseMixin {
         return this.$store.getters['printer/getAvailableHeaters'].length
     }
 
-    get printerAvailableSensorsCount() {
-        return this.$store.getters['printer/getAvailableSensors'].length
+    get printerTemperatureSensorsCount() {
+        return this.$store.getters['printer/getTemperatureSensors'].length
     }
 
     get macroMode() {
@@ -93,7 +91,7 @@ export default class DashboardMixin extends BaseMixin {
         }
 
         // remove temperature panel, if heaters & sensors < 1
-        if (this.printerAvailableHeatersCount + this.printerAvailableSensorsCount < 1) {
+        if (this.printerAvailableHeatersCount + this.printerTemperatureSensorsCount < 1) {
             allPanels = allPanels.filter((name) => name !== 'temperature')
         }
 

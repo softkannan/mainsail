@@ -8,7 +8,6 @@ import {
 import { GetterTree } from 'vuex'
 import { FileState, FileStateFile, FileStateGcodefile } from '@/store/files/types'
 import { ServerHistoryStateJob } from '@/store/server/history/types'
-import { ServerJobQueueStateJob } from '@/store/server/jobQueue/types'
 
 // eslint-disable-next-line
 export const getters: GetterTree<FileState, any> = {
@@ -44,6 +43,9 @@ export const getters: GetterTree<FileState, any> = {
     getGcodeFiles:
         (state, getters, rootState, rootGetters) =>
         (path: string | null, boolShowHiddenFiles: boolean, boolShowPrintedFiles: boolean) => {
+            const rootGcodes = getters['getDirectory']('gcodes')
+            if (rootGcodes === null) return []
+
             let baseURL = `${rootGetters['socket/getUrl']}/server/files/gcodes`
             let files: FileStateFile[] = []
 
@@ -52,8 +54,6 @@ export const getters: GetterTree<FileState, any> = {
                 const directory = getters['getDirectory']('gcodes' + path)
                 files = directory?.childrens ?? []
             } else {
-                const rootGcodes = getters['getDirectory']('gcodes')
-
                 const searchGcodes = (directory: FileStateFile, currentPath: string) => {
                     if (directory.isDirectory && directory.childrens?.length) {
                         directory.childrens?.forEach((file) => {
@@ -89,6 +89,7 @@ export const getters: GetterTree<FileState, any> = {
                 const fileTimestamp = typeof file.modified.getTime === 'function' ? file.modified.getTime() : 0
                 const tmp: FileStateGcodefile = {
                     ...file,
+                    preheat_gcode: null,
                     small_thumbnail: null,
                     big_thumbnail: null,
                     big_thumbnail_width: null,
@@ -99,6 +100,22 @@ export const getters: GetterTree<FileState, any> = {
                     last_status: null,
                     last_print_duration: null,
                     last_total_duration: null,
+                }
+
+                const preheat_gcode_array: string[] = []
+                const preheat_gcode_objects = [
+                    { name: 'first_layer_extr_temp', gcode: 'M104' },
+                    { name: 'first_layer_bed_temp', gcode: 'M140' },
+                ]
+
+                preheat_gcode_objects.forEach((object) => {
+                    if (object.name in file && file[object.name] > 1) {
+                        preheat_gcode_array.push(`${object.gcode} S${file[object.name]}`)
+                    }
+                })
+
+                if (preheat_gcode_array.length) {
+                    tmp.preheat_gcode = preheat_gcode_array.join('\n')
                 }
 
                 if (file.thumbnails?.length) {

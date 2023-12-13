@@ -3,16 +3,17 @@
 <template>
     <div>
         <panel
-            :title="$t('Machine.ConfigFilesPanel.ConfigFiles')"
+            :title="$t('Machine.ConfigFilesPanel.ConfigFiles').toString()"
             card-class="machine-configfiles-panel"
-            :icon="mdiInformation">
+            :icon="mdiInformation"
+            :collapsible="true">
             <v-card-text>
                 <v-row>
                     <v-col class="col-12 col-lg pr-lg-0">
                         <v-select
                             v-model="root"
                             class="machine-configfiles-panel__root-select"
-                            :items="registeredDirectories"
+                            :items="registeredDirectoriesSelectItems"
                             :label="$t('Machine.ConfigFilesPanel.Root')"
                             outlined
                             hide-details
@@ -70,7 +71,7 @@
                             {{ absolutePath }}
                         </span>
                         <v-spacer></v-spacer>
-                        <template v-if="disk_usage !== null">
+                        <template v-if="disk_usage !== null && !showMissingConfigRootWarning">
                             <v-tooltip top>
                                 <template #activator="{ on, attrs }">
                                     <span v-bind="attrs" v-on="on">
@@ -83,7 +84,8 @@
                                     <br />
                                     {{ $t('Machine.ConfigFilesPanel.Free') }}: {{ formatFilesize(disk_usage.free) }}
                                     <br />
-                                    {{ $t('Machine.ConfigFilesPanel.Total') }}: {{ formatFilesize(disk_usage.total) }}
+                                    {{ $t('Machine.ConfigFilesPanel.Total') }}:
+                                    {{ formatFilesize(disk_usage.total) }}
                                 </span>
                             </v-tooltip>
                         </template>
@@ -92,6 +94,7 @@
             </v-card-text>
             <v-divider></v-divider>
             <v-data-table
+                v-if="!showMissingConfigRootWarning"
                 v-model="selectedFiles"
                 :items="files"
                 class="files-table"
@@ -159,10 +162,26 @@
                         <td class="text-no-wrap text-right">
                             {{ item.isDirectory ? '--' : formatFilesize(item.size) }}
                         </td>
-                        <td class="text-right">{{ formatDate(item.modified) }}</td>
+                        <td class="text-right">{{ formatDateTime(item.modified) }}</td>
                     </tr>
                 </template>
             </v-data-table>
+            <v-card-text v-else>
+                <v-row>
+                    <v-col class="col-12 col-lg pr-lg-0">
+                        <v-alert
+                            dense
+                            text
+                            type="warning"
+                            elevation="2"
+                            class="mx-auto mt-6"
+                            max-width="500"
+                            :icon="mdiLockOutline">
+                            {{ $t('Machine.ConfigFilesPanel.ConfigRootDirectoryDoesntExists') }}
+                        </v-alert>
+                    </v-col>
+                </v-row>
+            </v-card-text>
         </panel>
         <v-menu v-model="contextMenu.shown" :position-x="contextMenu.x" :position-y="contextMenu.y" absolute offset-y>
             <v-list>
@@ -244,7 +263,7 @@
         </v-dialog>
         <v-dialog v-model="dialogCreateFile.show" max-width="400">
             <panel
-                :title="$t('Machine.ConfigFilesPanel.CreateFile')"
+                :title="$t('Machine.ConfigFilesPanel.CreateFile').toString()"
                 card-class="maschine-configfiles-create-file-dialog"
                 :margin-bottom="false">
                 <template #buttons>
@@ -258,6 +277,8 @@
                         v-model="dialogCreateFile.name"
                         :label="$t('Machine.ConfigFilesPanel.Name')"
                         required
+                        :rules="nameInputRules"
+                        @update:error="isInvalidName = !isInvalidName"
                         @keyup.enter="createFileAction"></v-text-field>
                 </v-card-text>
                 <v-card-actions>
@@ -265,7 +286,7 @@
                     <v-btn color="" text @click="dialogCreateFile.show = false">
                         {{ $t('Machine.ConfigFilesPanel.Cancel') }}
                     </v-btn>
-                    <v-btn color="primary" text @click="createFileAction">
+                    <v-btn :disabled="isInvalidName" color="primary" text @click="createFileAction">
                         {{ $t('Machine.ConfigFilesPanel.Create') }}
                     </v-btn>
                 </v-card-actions>
@@ -273,7 +294,7 @@
         </v-dialog>
         <v-dialog v-model="dialogRenameFile.show" max-width="400">
             <panel
-                :title="$t('Machine.ConfigFilesPanel.RenameFile')"
+                :title="$t('Machine.ConfigFilesPanel.RenameFile').toString()"
                 card-class="maschine-configfiles-rename-file-dialog"
                 :margin-bottom="false">
                 <template #buttons>
@@ -287,6 +308,8 @@
                         v-model="dialogRenameFile.newName"
                         :label="$t('Machine.ConfigFilesPanel.Name')"
                         required
+                        :rules="nameInputRules"
+                        @update:error="isInvalidName = !isInvalidName"
                         @keyup.enter="renameFileAction"></v-text-field>
                 </v-card-text>
                 <v-card-actions>
@@ -294,7 +317,7 @@
                     <v-btn color="" text @click="dialogRenameFile.show = false">
                         {{ $t('Machine.ConfigFilesPanel.Cancel') }}
                     </v-btn>
-                    <v-btn color="primary" text @click="renameFileAction">
+                    <v-btn :disabled="isInvalidName" color="primary" text @click="renameFileAction">
                         {{ $t('Machine.ConfigFilesPanel.Rename') }}
                     </v-btn>
                 </v-card-actions>
@@ -302,7 +325,7 @@
         </v-dialog>
         <v-dialog v-model="dialogCreateDirectory.show" max-width="400">
             <panel
-                :title="$t('Machine.ConfigFilesPanel.CreateDirectory')"
+                :title="$t('Machine.ConfigFilesPanel.CreateDirectory').toString()"
                 card-class="maschine-configfiles-create-directory-dialog"
                 :margin-bottom="false">
                 <template #buttons>
@@ -316,6 +339,8 @@
                         v-model="dialogCreateDirectory.name"
                         :label="$t('Machine.ConfigFilesPanel.Name')"
                         required
+                        :rules="nameInputRules"
+                        @update:error="isInvalidName = !isInvalidName"
                         @keyup.enter="createDirectoryAction"></v-text-field>
                 </v-card-text>
                 <v-card-actions>
@@ -323,7 +348,7 @@
                     <v-btn color="" text @click="dialogCreateDirectory.show = false">
                         {{ $t('Machine.ConfigFilesPanel.Cancel') }}
                     </v-btn>
-                    <v-btn color="primary" text @click="createDirectoryAction">
+                    <v-btn :disabled="isInvalidName" color="primary" text @click="createDirectoryAction">
                         {{ $t('Machine.ConfigFilesPanel.Create') }}
                     </v-btn>
                 </v-card-actions>
@@ -331,7 +356,7 @@
         </v-dialog>
         <v-dialog v-model="dialogRenameDirectory.show" max-width="400">
             <panel
-                :title="$t('Machine.ConfigFilesPanel.RenameDirectory')"
+                :title="$t('Machine.ConfigFilesPanel.RenameDirectory').toString()"
                 card-class="maschine-configfiles-rename-directory-dialog"
                 :margin-bottom="false">
                 <template #buttons>
@@ -345,6 +370,8 @@
                         v-model="dialogRenameDirectory.newName"
                         :label="$t('Machine.ConfigFilesPanel.Name')"
                         required
+                        :rules="nameInputRules"
+                        @update:error="isInvalidName = !isInvalidName"
                         @keyup.enter="renameDirectoryAction"></v-text-field>
                 </v-card-text>
                 <v-card-actions>
@@ -352,7 +379,7 @@
                     <v-btn color="" text @click="dialogRenameDirectory.show = false">
                         {{ $t('Machine.ConfigFilesPanel.Cancel') }}
                     </v-btn>
-                    <v-btn color="primary" text @click="renameDirectoryAction">
+                    <v-btn :disabled="isInvalidName" color="primary" text @click="renameDirectoryAction">
                         {{ $t('Machine.ConfigFilesPanel.Rename') }}
                     </v-btn>
                 </v-card-actions>
@@ -360,7 +387,7 @@
         </v-dialog>
         <v-dialog v-model="dialogDeleteDirectory.show" max-width="400">
             <panel
-                :title="$t('Machine.ConfigFilesPanel.DeleteDirectory')"
+                :title="$t('Machine.ConfigFilesPanel.DeleteDirectory').toString()"
                 card-class="maschine-configfiles-delete-directory-dialog"
                 :margin-bottom="false">
                 <template #buttons>
@@ -390,7 +417,7 @@
         </v-dialog>
         <v-dialog v-model="deleteSelectedDialog" max-width="400">
             <panel
-                :title="$t('Machine.ConfigFilesPanel.Delete')"
+                :title="$t('Machine.ConfigFilesPanel.Delete').toString()"
                 card-class="gcode-files-delete-selected-dialog"
                 :margin-bottom="false">
                 <template #buttons>
@@ -435,7 +462,7 @@
 <script lang="ts">
 import { Component, Mixins } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
-import { formatDate, formatFilesize, sortFiles } from '@/plugins/helpers'
+import { formatFilesize, sortFiles } from '@/plugins/helpers'
 import { FileStateFile, FileStateGcodefile } from '@/store/files/types'
 import axios from 'axios'
 import Panel from '@/components/ui/Panel.vue'
@@ -456,6 +483,7 @@ import {
     mdiRenameBox,
     mdiDelete,
     mdiCloseThick,
+    mdiLockOutline,
 } from '@mdi/js'
 
 interface contextMenu {
@@ -521,10 +549,10 @@ export default class ConfigFilesPanel extends Mixins(BaseMixin) {
     mdiRenameBox = mdiRenameBox
     mdiDelete = mdiDelete
     mdiCloseThick = mdiCloseThick
+    mdiLockOutline = mdiLockOutline
 
     sortFiles = sortFiles
     formatFilesize = formatFilesize
-    formatDate = formatDate
 
     declare $refs: {
         fileUpload: HTMLInputElement
@@ -618,6 +646,16 @@ export default class ConfigFilesPanel extends Mixins(BaseMixin) {
 
     private deleteSelectedDialog = false
 
+    private isInvalidName = true
+    private nameInputRules = [
+        (value: string) => !!value || this.$t('Files.InvalidNameEmpty'),
+        (value: string) => !this.existsFilename(value) || this.$t('Files.InvalidNameAlreadyExists'),
+    ]
+
+    existsFilename(name: string) {
+        return this.files.findIndex((file) => file.filename === name) >= 0
+    }
+
     get blockFileUpload() {
         return this.$store.state.gui.view.blockFileUpload ?? false
     }
@@ -707,7 +745,7 @@ export default class ConfigFilesPanel extends Mixins(BaseMixin) {
         let files = [...(this.directory?.childrens ?? [])]
 
         if (!this.showHiddenFiles) {
-            files = files.filter((file) => file.filename.substr(0, 1) !== '.')
+            files = files.filter((file) => file.filename.slice(0, 1) !== '.')
         }
 
         if (this.hideBackupFiles) {
@@ -780,9 +818,26 @@ export default class ConfigFilesPanel extends Mixins(BaseMixin) {
     }
 
     get registeredDirectories() {
-        return this.$store.state.server.registered_directories
-            .filter((dir: string) => !hiddenRootDirectories.includes(dir))
-            .sort()
+        return this.$store.state.server.registered_directories ?? []
+    }
+
+    get existConfigRoot() {
+        return this.registeredDirectories.findIndex((root: string) => root === 'config') !== -1
+    }
+
+    get showMissingConfigRootWarning() {
+        return (
+            this.absolutePath.startsWith('/config') &&
+            !this.absolutePath.startsWith('/config_example') &&
+            !this.existConfigRoot
+        )
+    }
+
+    get registeredDirectoriesSelectItems() {
+        const items = this.registeredDirectories.filter((dir: string) => !hiddenRootDirectories.includes(dir)).sort()
+        if (!this.existConfigRoot) items.push('config')
+
+        return items
     }
 
     get root() {
@@ -853,7 +908,7 @@ export default class ConfigFilesPanel extends Mixins(BaseMixin) {
     }
 
     clickRowGoBack() {
-        this.currentPath = this.currentPath.substr(0, this.currentPath.lastIndexOf('/'))
+        this.currentPath = this.currentPath.slice(0, this.currentPath.lastIndexOf('/'))
     }
 
     showContextMenu(e: any, item: FileStateFile) {
